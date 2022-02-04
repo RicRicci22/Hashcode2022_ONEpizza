@@ -2,30 +2,27 @@ import os
 import random
 import numpy as np
 
-path = r'C:\Users\Riccardo\Desktop\Hashcode 2022\Sample problem\inputs'
-path_save = r'C:\Users\Riccardo\Desktop\Hashcode 2022\Sample problem\results'
+path = r'C:\Users\Riccardo\Desktop\Altri progetti\Hashcode2022_ONEpizza\inputs'
+path_save = r'C:\Users\Riccardo\Desktop\Altri progetti\Hashcode2022_ONEpizza\results'
 
 def evaluate_population(population,clients_like,clients_dislike):
-    evaluations = np.zeros((1,population.shape[0]))
-    for i in range(population.shape[0]):
-        tot = 0 
-        for j in range(clients_like.shape[0]):
-            if(np.sum(population[i]*clients_like[j])==np.sum(clients_like[j]) and np.sum(population[i]*clients_dislike[j])==0):
-                tot+=1
-        evaluations[0,i]=tot
+    # Population now is a vector! 
+    all_likes = np.sum(clients_like,axis=1)
+    all_likes = np.vstack([all_likes.reshape(1,-1)]*population.shape[0])
+    clients_like = np.dot(population,clients_like.T)
+    clients_dislike = np.dot(population,clients_dislike.T)
+    clients_dislike = (clients_dislike==0)
+    clients_like = np.equal(clients_like,all_likes)
+    evaluation = clients_like.astype(int)*clients_dislike.astype(int)
+    evaluation = np.sum(evaluation,axis=1)
+    best_score = np.max(evaluation)
+    best_ingredients = population[np.argmax(evaluation),:]
     
-    return evaluations, population[np.argmax(evaluations,axis=1),:], evaluations[0,np.argmax(evaluations,axis=1)]
+    return best_score, best_ingredients
 
 def create_population(n_,n_ingredients):
     # Create random lists of ingredients
-    population = np.zeros((n_,n_ingredients))
-    for i in range(n_):
-        # Get number of ingredients 
-        n_ing = random.randint(1,n_ingredients)
-        random_indexes = np.random.choice([i for i in range(n_ingredients)],n_ing,replace=False)
-        population[i,random_indexes] = 1
-    
-    return population
+    return np.random.randint(low=0,high=2,size=(n_,n_ingredients))
 
 def select_best(population,evaluations):
     new_population = np.zeros((population.shape))
@@ -36,14 +33,11 @@ def select_best(population,evaluations):
     
     return new_population
 
-def mutate(population,n_mutations):
-    for _ in range(n_mutations):
-        # change random ingredient(s)
-        individual_to_change = random.randint(0,population.shape[0]-1)
-        random_indexes = np.random.choice([i for i in range(population.shape[1])],1,replace=False)
-        for i in random_indexes:
-            population[individual_to_change,i] = not population[individual_to_change,i]
-            
+def mutate(population):
+    # change random ingredient
+    random_index = np.random.choice([i for i in range(population.shape[1])],1)
+    population[0,random_index] = not population[0,random_index]
+    
     return population
 
 
@@ -77,25 +71,24 @@ if __name__ == "__main__":
         
         output_best = 0
         output_ingredients_coded = 0
-        population = create_population(1,len(ingredients))
-        #print(population)
+        population = create_population(10000,len(ingredients))
         i=0
         while True:
-            scores, best_ingredients, best_result = evaluate_population(population,clients_like,clients_dislike)
-            #population = select_best(population,scores)
-            population = mutate(population,n_clients)
-            if(best_result>output_best):
-                output_best = best_result
+            score, best_ingredients = evaluate_population(population,clients_like,clients_dislike)
+            if(score>output_best):
+                output_best = score
                 output_ingredients_coded = best_ingredients
                 i=0
-            print(output_best)
+                print(score)
+
+            population = create_population(10000,len(ingredients))
             i+=1
-            if(best_result==output_best and i>1000):
+            
+            if(score==output_best and i>100000):
                 break
 
 
-        output_ingredients = [ingredients[i] for i in range(len(ingredients)) if output_ingredients_coded[0][i]==1]
-        print(output_ingredients)
+        output_ingredients = [ingredients[i] for i in range(len(ingredients)) if output_ingredients_coded[i]==1]
 
         # Save the final ingrediens 
         with open(os.path.join(path_save,file),'w') as fileout:
